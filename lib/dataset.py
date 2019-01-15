@@ -63,7 +63,13 @@ class VideoDataset(Dataset):
         frame_width = int(capture.get(cv2.CAP_PROP_FRAME_WIDTH))
         frame_height = int(capture.get(cv2.CAP_PROP_FRAME_HEIGHT))
         # create a buffer. Must have dtype float, so it gets converted to a FloatTensor by Pytorch later
+        start_idx = 0
+        end_idx = frame_count-1
         frame_count_sample = frame_count // self.frame_sample_rate - 1
+        if frame_count>300:
+            end_idx = np.random.randint(300, frame_count)
+            start_idx = end_idx - 300
+            frame_count_sample = 301 // self.frame_sample_rate - 1
         buffer = np.empty((frame_count_sample, self.resize_height, self.resize_width, 3), np.dtype('float32'))
 
         count = 0
@@ -71,9 +77,12 @@ class VideoDataset(Dataset):
         sample_count = 0
 
         # read in each frame, one at a time into the numpy buffer array
-        while (count < frame_count and retaining):
+        while (count <= end_idx and retaining):
             retaining, frame = capture.read()
-            if retaining is False:
+            if count < start_idx:
+                count += 1
+                continue
+            if retaining is False or count>end_idx:
                 break
             if count%self.frame_sample_rate == remainder and sample_count < frame_count_sample:
                 frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
@@ -126,8 +135,8 @@ class VideoDataset(Dataset):
 
 if __name__ == '__main__':
 
-    #datapath='/home/cr/workspace/disk/data/VideoRecognition/UCF-101'
+    datapath = '/disk/data/UCF-101'
     train_dataloader = \
-        DataLoader( VideoDataset(datapathli, mode='train'), batch_size=10, shuffle=True, num_workers=0)
+        DataLoader( VideoDataset(datapath, mode='train'), batch_size=10, shuffle=True, num_workers=0)
     for step, (buffer, label) in enumerate(train_dataloader):
         print("label: ", label)
