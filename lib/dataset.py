@@ -69,12 +69,13 @@ class VideoDataset(Dataset):
         retaining = True
         sample_count = 0
 
+        remainder = np.random.randint(self.frame_sample_rate)
         # read in each frame, one at a time into the numpy buffer array
         while (count < frame_count and retaining):
             retaining, frame = capture.read()
             if retaining is False:
                 break
-            if count%self.frame_sample_rate == 0 and sample_count < frame_count_sample:
+            if count%self.frame_sample_rate == remainder and sample_count < frame_count_sample:
                 frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
                 # will resize frames if not already final size
 
