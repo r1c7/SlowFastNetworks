@@ -56,20 +56,20 @@ class VideoDataset(Dataset):
         return buffer.transpose((3, 0, 1, 2))
 
     def loadvideo(self, fname):
+        remainder = np.random.randint(self.frame_sample_rate)
         # initialize a VideoCapture object to read video data into a numpy array
         capture = cv2.VideoCapture(fname)
         frame_count = int(capture.get(cv2.CAP_PROP_FRAME_COUNT))
         frame_width = int(capture.get(cv2.CAP_PROP_FRAME_WIDTH))
         frame_height = int(capture.get(cv2.CAP_PROP_FRAME_HEIGHT))
         # create a buffer. Must have dtype float, so it gets converted to a FloatTensor by Pytorch later
-        frame_count_sample = frame_count // self.frame_sample_rate
+        frame_count_sample = frame_count // self.frame_sample_rate - 1
         buffer = np.empty((frame_count_sample, self.resize_height, self.resize_width, 3), np.dtype('float32'))
 
         count = 0
         retaining = True
         sample_count = 0
 
-        remainder = np.random.randint(self.frame_sample_rate)
         # read in each frame, one at a time into the numpy buffer array
         while (count < frame_count and retaining):
             retaining, frame = capture.read()
