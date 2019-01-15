@@ -3,14 +3,14 @@ PyTorch implementation of ["SlowFast Networks for Video Recognition"](https://ar
 ## Train
 1. Dataset should be orgnized as：  
 dataset(e.g. UCF-101)  
-├── train/training  
-│   ├── ApplyEyeMakeup  
-│   ├── ApplyLipstick  
-│   ├── ...  
-└── validation  
-│   ├── ApplyEyeMakeup  
-│   ├── ApplyLipstick  
-│   ├── ...  
+│----│ train/training  
+│----│----│ ApplyEyeMakeup  
+│----│----│ ApplyLipstick  
+│----│----│ ...  
+│----│ validation  
+│----│----│ ApplyEyeMakeup  
+│----│----│ ApplyLipstick  
+│----│----│ ...   
 
 2. Modify the params in config.py and `mode` of `train_dataloader` or `val_dataloader` in train.py.   
 
