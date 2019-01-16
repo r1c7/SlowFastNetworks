@@ -31,18 +31,18 @@ def train(model, train_dataloader, epoch, criterion, optimizer, writer):
 
         running_loss += loss.item() * inputs.size(0)
         running_corrects += torch.sum(preds == labels.data)
-        if step % params['display'] == 0 and step != 0:
-            print('-------------------------------')
+        if (step+1) % params['display'] == 0:
+            print('-------------------------------------------------------')
             for param in optimizer.param_groups:
                 print('lr: ', param['lr'])
-            print_string = 'Epoch: [{0}][{1}/{2}]\t'.format(epoch, step, len(train_dataloader))
+            print_string = 'Epoch: [{0}][{1}/{2}]\t'.format(epoch, step+1, len(train_dataloader))
             print(print_string)
             print_string = 'batch time: {batch_time:.3f} \t'.format(batch_time=batch_time)
             print(print_string)
-            ave_loss=running_loss/((step+1)*inputs.size(0))
+            ave_loss=running_loss / (step*params['batch_size']+inputs.size(0))
             print_string = 'Loss {loss:.5f} '.format(loss=ave_loss)
             print(print_string)
-            ave_acc = running_corrects.double() /((step+1)*inputs.size(0))
+            ave_acc = running_corrects.double() / (step*params['batch_size']+inputs.size(0))
             print_string = 'Average_accuracy {ave_acc:.5f} '.format(ave_acc=ave_acc)
             print(print_string)
     epoch_loss = running_loss / train_size
@@ -66,14 +66,14 @@ def validation(model, val_dataloader, epoch, criterion, optimizer, writer):
             loss = criterion(outputs, labels)
             running_loss += loss.item() * inputs.size(0)
             running_corrects += torch.sum(preds == labels.data)
-            if step % params['display'] == 0 and step != 0:
+            if (step + 1) % params['display'] == 0:
                 print('--validation--')
-                print_string = 'Epoch: [{0}][{1}/{2}]\t'.format(epoch, step, len(val_dataloader))
+                print_string = 'Epoch: [{0}][{1}/{2}]\t'.format(epoch, step + 1, len(val_dataloader))
                 print(print_string)
-                ave_loss = running_loss / ((step+1) * inputs.size(0))
+                ave_loss = running_loss / (step * params['batch_size'] + inputs.size(0))
                 print_string = 'Loss {loss:.5f} '.format(loss=ave_loss)
                 print(print_string)
-                ave_acc = running_corrects.double() / ((step+1) * inputs.size(0))
+                ave_acc = running_corrects.double() / (step * params['batch_size'] + inputs.size(0))
                 print_string = 'Average_accuracy {ave_acc:.5f} '.format(ave_acc=ave_acc)
                 print(print_string)
         epoch_loss = running_loss / val_size
