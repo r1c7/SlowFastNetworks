@@ -10,76 +10,128 @@ from lib.dataset import VideoDataset
 from lib import slowfastnet
 from tensorboardX import SummaryWriter
 
+class AverageMeter(object):
+    """Computes and stores the average and current value"""
+    def __init__(self):
+        self.reset()
+
+    def reset(self):
+        self.val = 0
+        self.avg = 0
+        self.sum = 0
+        self.count = 0
+
+    def update(self, val, n=1):
+        self.val = val
+        self.sum += val * n
+        self.count += n
+        self.avg = self.sum / self.count
+
+def accuracy(output, target, topk=(1,)):
+    """Computes the precision@k for the specified values of k"""
+    maxk = max(topk)
+    batch_size = target.size(0)
+
+    _, pred = output.topk(maxk, 1, True, True)
+    pred = pred.t()
+    correct = pred.eq(target.view(1, -1).expand_as(pred))
+
+    res = []
+    for k in topk:
+        correct_k = correct[:k].view(-1).float().sum(0)
+        res.append(correct_k.mul_(100.0 / batch_size))
+    return res
 
 def train(model, train_dataloader, epoch, criterion, optimizer, writer):
+    batch_time = AverageMeter()
+    data_time = AverageMeter()
+    losses = AverageMeter()
+    top1 = AverageMeter()
+    top5 = AverageMeter()
+
     model.train()
-    running_loss = 0.0
-    running_corrects = 0.0
-    train_size=len(train_dataloader.dataset)
     end = time.time()
     for step, (inputs, labels) in enumerate(train_dataloader):
+        data_time.update(time.time() - end)
+
         inputs = inputs.cuda()
         labels = labels.cuda()
         outputs = model(inputs)
-        _, preds = torch.max(outputs, 1)
         loss = criterion(outputs, labels)
+
+        # measure accuracy and record loss
+        prec1, prec5 = accuracy(outputs.data, labels, topk=(1, 5))
+        losses.update(loss.item(), inputs.size(0))
+        top1.update(prec1.item(), inputs.size(0))
+        top5.update(prec5.item(), inputs.size(0))
+
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
-        batch_time = time.time() - end
+        batch_time.update(time.time() - end)
         end = time.time()
-
-        running_loss += loss.item() * inputs.size(0)
-        running_corrects += torch.sum(preds == labels.data)
         if (step+1) % params['display'] == 0:
             print('-------------------------------------------------------')
             for param in optimizer.param_groups:
                 print('lr: ', param['lr'])
-            print_string = 'Epoch: [{0}][{1}/{2}]\t'.format(epoch, step+1, len(train_dataloader))
+            print_string = 'Epoch: [{0}][{1}/{2}]'.format(epoch, step+1, len(train_dataloader))
             print(print_string)
-            print_string = 'batch time: {batch_time:.3f} \t'.format(batch_time=batch_time)
+            print_string = 'data_time: {data_time:.3f}, batch time: {batch_time:.3f}'.format(
+                data_time=data_time.val,
+                batch_time=batch_time.val)
             print(print_string)
-            ave_loss=running_loss / (step*params['batch_size']+inputs.size(0))
-            print_string = 'Loss {loss:.5f} '.format(loss=ave_loss)
+            print_string = 'loss: {loss:.5f}'.format(loss=losses.avg)
             print(print_string)
-            ave_acc = running_corrects.double() / (step*params['batch_size']+inputs.size(0))
-            print_string = 'Average_accuracy {ave_acc:.5f} '.format(ave_acc=ave_acc)
+            print_string = 'Top-1 accuracy: {top1_acc:.2f}%, Top-5 accuracy: {top5_acc:.2f}%'.format(
+                top1_acc=top1.avg,
+                top5_acc=top5.avg)
             print(print_string)
-    epoch_loss = running_loss / train_size
-    epoch_acc = running_corrects.double() / train_size
-    writer.add_scalar('data/train_loss_epoch', epoch_loss, epoch)
-    writer.add_scalar('data/train_acc_epoch', epoch_acc, epoch)
-
+    writer.add_scalar('train_loss_epoch', losses.avg, epoch)
+    writer.add_scalar('train_top1_acc_epoch', top1.avg, epoch)
+    writer.add_scalar('train_top5_acc_epoch', top5.avg, epoch)
 
 def validation(model, val_dataloader, epoch, criterion, optimizer, writer):
+    batch_time = AverageMeter()
+    data_time = AverageMeter()
+    losses = AverageMeter()
+    top1 = AverageMeter()
+    top5 = AverageMeter()
     model.eval()
-    running_loss = 0.0
-    running_corrects = 0.0
-    val_size=len(val_dataloader.dataset)
+
+    end = time.time()
     with torch.no_grad():
         for step, (inputs, labels) in enumerate(val_dataloader):
+            data_time.update(time.time() - end)
             inputs = inputs.cuda()
             labels = labels.cuda()
             outputs = model(inputs)
-
-            _, preds = torch.max(outputs, 1)
             loss = criterion(outputs, labels)
-            running_loss += loss.item() * inputs.size(0)
-            running_corrects += torch.sum(preds == labels.data)
+
+            # measure accuracy and record loss
+
+            prec1, prec5 = accuracy(outputs.data, labels, topk=(1, 5))
+            losses.update(loss.item(), inputs.size(0))
+            top1.update(prec1.item(), inputs.size(0))
+            top5.update(prec5.item(), inputs.size(0))
+            batch_time.update(time.time() - end)
+            end = time.time()
             if (step + 1) % params['display'] == 0:
-                print('--validation--')
-                print_string = 'Epoch: [{0}][{1}/{2}]\t'.format(epoch, step + 1, len(val_dataloader))
+                print('----validation----')
+                print_string = 'Epoch: [{0}][{1}/{2}]'.format(epoch, step + 1, len(val_dataloader))
                 print(print_string)
-                ave_loss = running_loss / (step * params['batch_size'] + inputs.size(0))
-                print_string = 'Loss {loss:.5f} '.format(loss=ave_loss)
+                print_string = 'data_time: {data_time:.3f}, batch time: {batch_time:.3f}'.format(
+                    data_time=data_time.val,
+                    batch_time=batch_time.val)
                 print(print_string)
-                ave_acc = running_corrects.double() / (step * params['batch_size'] + inputs.size(0))
-                print_string = 'Average_accuracy {ave_acc:.5f} '.format(ave_acc=ave_acc)
+                print_string = 'loss: {loss:.5f}'.format(loss=losses.avg)
                 print(print_string)
-        epoch_loss = running_loss / val_size
-        epoch_acc = running_corrects.double() / val_size
-        writer.add_scalar('data/val_loss_epoch', epoch_loss, epoch)
-        writer.add_scalar('data/val_acc_epoch', epoch_acc, epoch)
+                print_string = 'Top-1 accuracy: {top1_acc:.2f}%, Top-5 accuracy: {top5_acc:.2f}%'.format(
+                    top1_acc=top1.avg,
+                    top5_acc=top5.avg)
+                print(print_string)
+    writer.add_scalar('val_loss_epoch', losses.avg, epoch)
+    writer.add_scalar('val_top1_acc_epoch', top1.avg, epoch)
+    writer.add_scalar('val_top5_acc_epoch', top5.avg, epoch)
 
 
 def main():
@@ -128,7 +180,7 @@ def main():
         os.makedirs(model_save_dir)
     for epoch in range(params['epoch_num']):
         train(model, train_dataloader, epoch, criterion, optimizer, writer)
-        if epoch % 2 == 0:
+        if epoch % 2== 0:
             validation(model, val_dataloader, epoch, criterion, optimizer, writer)
         scheduler.step()
         if epoch % 1 == 0:
