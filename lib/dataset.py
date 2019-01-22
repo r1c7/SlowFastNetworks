@@ -10,12 +10,10 @@ class VideoDataset(Dataset):
 
     def __init__(self, directory, mode='train', clip_len=8, frame_sample_rate=1):
         folder = Path(directory)/mode  # get the directory of the specified split
-        print("folder",folder)
         self.clip_len = clip_len
 
-        self.resize_height = 128  
-        self.resize_width = 171
-        self.crop_size = 112
+        self.short_side = [256, 320]
+        self.crop_size = 224
         self.frame_sample_rate = frame_sample_rate
         self.mode = mode
 
@@ -40,7 +38,7 @@ class VideoDataset(Dataset):
 
         while buffer.shape[0]<self.clip_len+2 :
             index = np.random.randint(self.__len__())
-            buffer= self.loadvideo(self.fnames[index])
+            buffer = self.loadvideo(self.fnames[index])
 
         if self.mode == 'train' or self.mode == 'training':
             buffer = self.randomflip(buffer)
@@ -62,6 +60,14 @@ class VideoDataset(Dataset):
         frame_count = int(capture.get(cv2.CAP_PROP_FRAME_COUNT))
         frame_width = int(capture.get(cv2.CAP_PROP_FRAME_WIDTH))
         frame_height = int(capture.get(cv2.CAP_PROP_FRAME_HEIGHT))
+
+        if frame_height < frame_width:
+            resize_height = np.random.randint(self.short_side[0], self.short_side[1] + 1)
+            resize_width = int(float(resize_height) / frame_height * frame_width)
+        else:
+            resize_width = np.random.randint(self.short_side[0], self.short_side[1] + 1)
+            resize_height = int(float(resize_width) / frame_width * frame_height)
+
         # create a buffer. Must have dtype float, so it gets converted to a FloatTensor by Pytorch later
         start_idx = 0
         end_idx = frame_count-1
@@ -70,7 +76,7 @@ class VideoDataset(Dataset):
             end_idx = np.random.randint(300, frame_count)
             start_idx = end_idx - 300
             frame_count_sample = 301 // self.frame_sample_rate - 1
-        buffer = np.empty((frame_count_sample, self.resize_height, self.resize_width, 3), np.dtype('float32'))
+        buffer = np.empty((frame_count_sample, resize_height, resize_width, 3), np.dtype('float32'))
 
         count = 0
         retaining = True
@@ -88,8 +94,8 @@ class VideoDataset(Dataset):
                 frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
                 # will resize frames if not already final size
 
-                if (frame_height != self.resize_height) or (frame_width != self.resize_width):
-                    frame = cv2.resize(frame, (self.resize_width, self.resize_height))
+                if (frame_height != resize_height) or (frame_width != resize_width):
+                    frame = cv2.resize(frame, (resize_width, resize_height))
                 buffer[sample_count] = frame
                 sample_count = sample_count + 1
             count += 1
