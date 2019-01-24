@@ -28,7 +28,7 @@ class VideoDataset(Dataset):
         # convert the list of label names into an array of label indices
         self.label_array = np.array([self.label2index[label] for label in labels], dtype=int)
 
-        label_file = str(os.listdir(folder))+'class_labels.txt'
+        label_file = str(len(os.listdir(folder)))+'class_labels.txt'
         with open(label_file, 'w') as f:
             for id, label in enumerate(sorted(self.label2index)):
                 f.writelines(str(id + 1) + ' ' + label + '\n')
