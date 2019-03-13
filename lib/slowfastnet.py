@@ -82,9 +82,9 @@ class SlowFast(nn.Module):
         self.slow_res3 = self._make_layer_slow(
             block, 128, layers[1], stride=2, head_conv=1)
         self.slow_res4 = self._make_layer_slow(
-            block, 256, layers[2], stride=2, head_conv=1)
+            block, 256, layers[2], stride=2, head_conv=3)
         self.slow_res5 = self._make_layer_slow(
-            block, 512, layers[3], stride=2, head_conv=1)
+            block, 512, layers[3], stride=2, head_conv=3)
         self.dp = nn.Dropout(dropout)
         self.fc = nn.Linear(self.fast_inplanes+2048, class_num, bias=False)
     def forward(self, input):
